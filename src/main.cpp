@@ -1,5 +1,10 @@
 #include <WiFi.h>
 #include <WebServer.h>
+
+// Potentiomètre relié à GPIO 34 (Analog ADC1_CH6)
+
+const int potPin = 34;
+
 const char* ssid = "S23Adem";
 const char* password = "mdp12345";
 WebServer server(80);
@@ -19,7 +24,7 @@ void handleRoot(){
   page += "</head>";
   page += "<body>";
   page += " <div class='w3-card w3-blue w3-padding-small w3-jumbo w3-center'>";
-  page += " <p>ÉTAT LED: "; page += texteEtatLed[etatLed]; + "</p>";
+  page += " <p>Valeur Potentiomètre : "; page += String(analogRead(potPin)); + "</p>";
   page += " </div>";
   page += " <div class='w3-bar'>";
   page += " <a href='/on' class='w3-bar-item w3-button w3-border w3-jumbo' style='width:50%; height:50%;'>ON</a>";
@@ -54,15 +59,16 @@ void handleNotFound(){
 }
 
 void setup(){
-Serial.begin(115200);
-delay(1000);
-Serial.println("\n");
-pinMode(led, OUTPUT);
-digitalWrite(led, LOW);
-WiFi.persistent(false);
-WiFi.begin(ssid, password);
-Serial.print("Tentative de connexion...");
-
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("\n");
+  pinMode(led, OUTPUT);
+  pinMode(potPin, INPUT);
+  digitalWrite(led, LOW);
+  WiFi.persistent(false);
+  WiFi.begin(ssid, password);
+  Serial.print("Tentative de connexion...");
+  
   while (WiFi.status() != WL_CONNECTED){
     Serial.print(".");
     delay(100);
@@ -79,8 +85,7 @@ Serial.print("Tentative de connexion...");
   server.begin();
   Serial.println("Serveur web actif!");
 }
-
-void loop()
-{
+  
+void loop() {
   server.handleClient();
 }
