@@ -1,0 +1,30 @@
+html {
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    margin: 0px auto;
+    text-align: center;
+}
+
+h1 {
+    color: #0F3376;
+    padding: 2vh;
+}
+
+p {
+    font-size: 24px;
+}
+
+.button {
+    background-color: #00c3ff; /* Bleu */
+    border: 100px solid ;
+    border-radius: 15px; /* Angle arrondi */
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 500px;
+}
+
+.button2 {
+    background-color: #f44336; /* Rouge */
+    font-size: 300px;
+}
