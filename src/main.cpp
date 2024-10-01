@@ -2,126 +2,131 @@
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
 
-const char *ssid = "S23Adem";
-const char *password ="mdp12345";
+const char* ssid = "S23Adem";
+const char* password = "mdp12345";
 
-const int led = 2; // Led intégrée à l'ESP32
+// Set LED GPIO
+const int ledPin = 2;
+
+// Stores LED state
+String ledState;
+
+// Create AsyncWebServer object on port 80
+
 AsyncWebServer server(80);
 
-void setup()
-{
+// Replaces placeholder with LED state value
+String processor(const String& var){
+    Serial.println(var);
+    if(var == "STATE"){
+        if(digitalRead(2)){
+            ledState = "MARCHE";
+        }
+        else{
+            ledState = "ARRET";
+        }
+        Serial.print(ledState);
+        return ledState;
+    }
+    return String();
+}
+
+void setup(){
     
+    // Serial port for debugging purposes
     Serial.begin(115200);
-    pinMode(led, OUTPUT);
-    digitalWrite(led, LOW);
+    pinMode(2, OUTPUT);
     
-    //---------------------------SPIFFS-------------------
-    
-    if(!SPIFFS.begin()) /* Démarrage du gestionnaire de fichiers SPIFFS */
-    {
-        Serial.println("Erreur SPIFFS...");
+    // Initialize SPIFFS
+    if(!SPIFFS.begin(true)){
+        Serial.println("An Error has occurred while mounting SPIFFS");
         return;
     }
-    /* Détection des fichiers présents sur l'Esp32 */
-    File root = SPIFFS.open("/"); /* Ouverture de la racine */
-    File file = root.openNextFile(); /* Ouverture du 1er fichier */
     
-    while(file) /* Boucle de test de présence des fichiers - Si plus de fichiers la boucle s'arrête*/
-    {
-        Serial.print("File: ");
-        Serial.println(file.name());
-        file.close();
-        file = root.openNextFile(); /* Lecture du fichier suivant */
+    // Connect to Wi-Fi
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.println("Connecting to WiFi..");
     }
-
-    //-----------------------WIFI-----------------------------
     
-    WiFi.hostname("Hey-Listen");
-    WiFi.begin(ssid, password); /* Connexion au réseau Wifi */
-    Serial.print("Tentative de connexion...");
-    while(WiFi.status() != WL_CONNECTED){
-        Serial.print(".");
-        delay(100);
-    }
-    Serial.println("\n");
-    Serial.println("Connexion etablie!");
-    Serial.print("Adresse IP: ");
+    // Print ESP32 Local IP Address
     Serial.println(WiFi.localIP());
     
-    //--------------------------SERVEUR--------------------------
-    /* Lorsque le serveur est actif , la page index.html est chargée */
-
+    // Route for root / web page
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(SPIFFS, "/index.html", String(), false, processor);
+    });
+    
+    // Route to load style.css file
     server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(SPIFFS, "/style.css", "text/css");
     });
-
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)   {
-        request->send(SPIFFS, "/index.html", "text/html"); 
-    });
     
-    /* Lorsque l'on clique sur ON, on allume la led */
+    // Route to set GPIO to HIGH
     server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
-        digitalWrite(led, HIGH);
-        request->send(SPIFFS, "/index.html", "text/html");
+        digitalWrite(ledPin, HIGH);
+        request->send(SPIFFS, "/index.html", String(), false, processor);
     });
-
-    /* Lorsque l'on clique sur OFF, on éteint la led */
-    server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
-        digitalWrite(led, LOW);
-        request->send(SPIFFS, "/index.html", "text/html");
-    });
-
-    /* On affiche que le serveur est actif */
     
+    // Route to set GPIO to LOW
+    server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
+        digitalWrite(ledPin, LOW);
+        request->send(SPIFFS, "/index.html", String(), false, processor);
+    });
+    
+    // Start server
     server.begin();
-    Serial.println("Serveur actif!");
+}
+void loop(){
 }
 
-void loop() /* La loop est vide */
-{
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
 
-
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⢿⣿⣿⣿⣿⣦⣄⡀⠁⠀⠘⠻⠿⣿⠿⠿⣿⣿⣿⣿⣿⣿⡋⠁⠀⢠⠀⠀⠀⠁⢾⣿⡟⠀⠀⠀⠀
-⢲⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣭⣙⣿⣷⡀⠀⠀⠀⠀⠀⠀⠈⠙⠻⣍⠛⢷⠀⠀⣼⣧⠀⠀⠀⢸⠟⠀⠀⠀⠀⣸
-⠀⠹⣿⣿⣿⣶⣶⣦⣄⣀⣠⣴⣾⣿⣝⡿⠿⠿⣿⣿⣿⠿⠛⢿⣷⣦⣤⡀⠀⠀⠀⠀⠀⠈⠳⠶⢶⣿⣿⣿⡇⠀⠀⠀⠀⠀⢀⣠⣾⠏
-⠀⠀⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⢟⣛⠓⣶⣎⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢻⠟⠀⠀⠀⠀⠀⠀⠘⠟⠁⠀
-⠀⠀⡠⠀⠙⠻⠿⣿⣿⣿⣿⣿⣦⡀⠀⠈⠳⢮⣮⣞⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⡴⠊⠀⠀⠀⠀⢒⣶⣿⣿⣿⣿⣿⣿⣶⣤⣄⣀⣙⣿⡬⢷⣄⣀⣤⣤⠄⠀⠀⠀⠀⠀⠀⣀⣀⣠⣴⡟⠀⠀⠀⠀⠀⣠⠀⠀⠀⠀⠀⠀
-⠁⠀⣀⣠⣶⣾⣿⣿⣿⣿⣿⡿⠟⠛⠋⠉⠛⠛⠛⢛⣿⣿⡿⣿⣋⣡⠄⢀⣠⣶⣶⣾⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⢸⡆⠀⠉⠛⠶⣶
-⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣋⡀⠀⠀⠀⢀⣠⣤⣾⣿⡿⠛⠛⣙⢿⣥⣴⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⣠⣿⠃⠀⠀⠀⡀⠀
-⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣶⣿⣿⣿⣿⡿⠃⠀⠀⠀⣀⡟⠁⢰⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⢀⣾⣿⡇⠀⠀⠀⢳⣿⡦
-⡄⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁⠀⣠⣴⣾⠏⠀⠀⣾⡿⠋⠹⠛⣿⣿⣿⠀⠀⠀⠀⢀⣴⣿⣿⣿⣧⠀⠀⠀⠀⠹⣿
-⢷⡈⠉⠹⣍⠉⠉⠉⠛⠛⢿⣿⣿⣿⣿⣿⣥⣦⣴⣾⣿⡿⠃⠀⢀⡼⠃⠀⠀⠀⣴⣿⣿⡿⠀⠀⠀⣴⣿⣿⣿⣿⢿⣿⣦⡀⠀⠀⠀⢫
-⠀⠳⡀⠀⠈⢳⣄⣀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠁⢀⣰⡟⠁⠀⠀⣠⣾⣿⢘⣿⡇⠀⢀⣼⣿⣿⣿⠟⠁⠘⣿⣿⣿⣦⣄⠐⠋
-⠀⠀⠙⠦⣀⠸⢿⡿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣀⣴⣿⣿⠇⢀⣴⣿⣿⣿⣿⢸⣿⡇⠀⠘⣿⣿⡿⠁⠀⠀⠀⢻⣿⣿⣿⣿⡇⢠
-⠀⠀⠀⠀⠈⠻⣗⠙⢀⣼⣿⣿⣿⣿⣿⢟⣩⣿⣿⣿⣿⣿⣿⣿⣶⣿⣿⣿⡿⣿⣿⣿⣿⡇⠀⣰⣿⠏⠀⠀⠀⠀⣀⡴⠟⣿⣿⣿⣿⣾
-⠀⠀⠀⠀⠀⠀⠘⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣿⣿⣿⣿⣿⠟⠋⠀⠸⣿⣿⣿⣿⣿⣿⡿⠀⣀⡤⢖⣯⣴⣶⣶⣬⣿⣿⣿⠿
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⠉⣵⡿⠛⣩⣽⣦⣄⡀⠀⢹⡏⢿⣿⣿⣧⡷⠋⢡⣾⠟⣩⣥⣄⠀⠀⠉⢻⡿⣦
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⡟⢉⡾⠛⠉⠉⠉⣿⣿⣶⡦⠅⠀⠙⢿⡇⠀⢶⢿⠁⢸⣿⠻⣿⡄⠀⠀⠈⠃⢹
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣿⢿⣿⣿⣿⣿⣿⢸⡅⠀⠀⠀⠀⣿⣿⣹⠟⠀⠀⠀⠀⠉⠀⠀⠈⠀⠘⢿⣾⣶⠃⠀⠀⠀⠀⢸
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⡏⠀⠻⣿⣿⡇⠈⣏⣿⡀⠀⠀⠀⠈⠻⠿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡸
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠀⠙⠿⣇⡀⠘⣎⢷⣄⠀⠀⠀⠀⠀⠀⢠⠀⠀⠀⠀⠀⠀⠀⠘⠢⢤⣀⣀⣀⣀⡠⠔⠁⠠
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣿⣭⠗⠒⠤⣤⠤⠒⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣷⢀⠀⠀⠀⠀⠐⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢯⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠰⢴⡆⠤⠤⢤⡀⠀⠀⠀⠀⠀⠀⢀⣤⣾⣿
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⢦⣄⡀⠀⠀⠀⠙⠒⠒⠚⠃⠀⠀⠀⢀⣤⣾⣿⣿⣿⣿
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣿⣿⢹⢷⣶⣄⣀⠀⠀⢀⣀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⠀⣴⣿⠟⢹⡌⢸⣹⣿⣏⣿⣽⣿⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⡶⠚⢹⡏⠙⣿⡏⠀⣸⢇⠀⡏⢿⣿⣿⣷⣏⣬⣿⡿⣿⣿⣿⣿⣿⢿⡋⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⠟⢻⠃⡴⠷⡗⣺⡿⠀⠀⠸⡞⣆⣇⠀⡟⠉⠉⠛⠛⠛⠚⠛⠛⢻⣯⠁⠈⣧⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡼⠿⣄⣜⡞⠁⠀⣷⣿⣅⠀⠈⢳⡹⣽⣿⡆⡇⠀⠀⢠⣶⡄⠀⠀⠀⣿⡿⣋⠀⢹⣤
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⡾⠋⠀⠀⢼⣿⣇⠳⡀⠸⣿⣿⣷⣄⢀⠹⣿⣿⡄⢳⠀⠀⠈⠉⠁⠀⢀⣿⡿⢊⢙⣤⠎⢳
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⡴⡿⠋⠀⠀⠀⢀⡞⢿⣿⣆⠈⠦⡈⠛⢿⣿⣷⣷⡈⢿⣿⣼⡀⠀⢠⣶⠄⠀⠈⢿⣧⡞⣿⠇⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⠞⠉⡡⠊⠀⠀⠀⠀⢀⣎⣵⣌⠻⣿⣷⣦⡈⠓⠢⣉⡛⢿⣿⣿⣿⣷⣇⠀⠈⠃⢀⣠⠶⠿⣷⡟⢟⠶⣄⠀
-⠀⠀⠀⠀⠀⠀⠀⢀⡴⠋⠢⠚⠀⠀⠀⠀⠀⠀⡼⠟⠙⢿⣷⣌⣙⡿⣿⣷⣦⣄⡉⠑⠛⢟⣛⠻⢿⣦⡤⠒⠋⠁⠀⣀⠘⢷⣌⢶⡙⢦
-⠀⠀⠀⠀⠀⢀⣴⠟⢁⣠⡤⠀⠀⠀⠀⠀⠀⣸⣃⠀⠀⠚⠛⠯⣿⡂⣀⠽⠛⠿⣿⣿⣦⣤⣼⣿⣿⣿⡟⠦⣄⠀⠞⠁⠀⣀⠹⣿⣧⣼
-⠀⠀⠀⠀⠐⠋⠛⢉⣁⣉⣓⠒⠢⠶⣤⣴⠞⣫⣧⠄⠀⢀⠀⠀⠙⠿⣿⣷⣦⣄⣀⠉⠛⣿⣿⣿⡿⠟⢻⣦⡙⠛⢦⣀⠜⠁⢀⣿⣟⣷
-⠀⠀⠀⠀⠀⠰⠚⠉⠀⠀⠈⠙⣶⠀⠀⣀⡭⠴⢾⢯⡉⠀⠀⠀⠀⠀⠀⠉⠙⠻⢿⣿⣷⣿⣿⣿⣶⣿⡟⠙⢿⣶⣄⠈⠓⠶⠋⢿⡒⠺
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠒⠛⠁⢠⣴⠋⡤⠽⡶⣄⡀⠀⠀⠀⠀⠀⠀⢀⡌⠉⣩⡏⢉⡼⠋⠀⠀⠀⠙⢿⣷⣄⡀⠀⠈⢧⡀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⠇⠙⢦⣷⠒⠁⠀⠈⠙⢷⠲⠤⠤⠶⣿⡦⠾⣥⣤⠟⠁⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣶⣾⠃
+⠀⠀⠀⠀⣀⢀⣠⣤⠴⠶⠚⠛⠉⣹⡇⠀⢸⠀⠀⠀⠀⠀⢰⣄⠀⠀⠀⠀⠈⢦⢰⠀⠀⠀⠀⠀⠈⢳⡀⠈⢧⠀⠀⠀⠀⢸⠀⠀⠀⠀
+⠀⠀⠉⠀⠀⠀⡏⠀⢰⠃⠀⠀⠀⣿⡇⠀⢸⡀⠀⠀⠀⠀⢸⣸⡆⠀⠀⠀⠰⣌⣧⡆⠀⢷⡀⠀⠀⣄⢳⠀⠀⢣⠀⠀⠀⢸⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⡇⠀⠘⠀⠀⠀⢀⣿⣇⠀⠸⡇⣆⠀⠀⠀⠀⣿⣿⡀⠀⠀⠀⢹⣾⡇⠀⢸⢣⠀⠀⠘⣿⣇⠀⠈⢧⠀⠀⠘⠀⢠⠀⠀
+⠀⠀⠀⠀⠀⢀⡇⠀⡀⠀⠀⠀⢸⠈⢻⡄⠀⢷⣿⠀⠀⠀⠀⢹⡏⣇⠀⣀⣀⠀⣿⣧⠀⢸⠾⣇⣠⣄⣸⣿⡄⠀⠘⡆⠀⠀⠀⠀⠆⠀
+⠀⠀⠀⠀⠀⣾⢿⠀⠇⠀⠀⠀⢸⠀⠀⢳⡀⢸⣿⡆⠀⠀⠀⣬⣿⡿⠟⠋⠉⠙⠻⣽⣀⡏⠀⠙⠃⢹⡙⡿⣷⠀⠀⢹⠀⠀⠀⠀⠰⠒
+⠀⠀⠀⠀⢸⣿⣿⣇⢸⠀⠀⠀⢸⣦⣤⡀⣷⣸⡟⢧⣀⡴⠶⠿⠻⡄⣀⣤⣴⡾⠖⠚⠿⡀⠀⠀⠀⠈⣧⠁⠹⠆⠀⠀⣇⠀⠀⠀⠀⠀
+⠀⠀⠀⢀⢸⣀⣼⣿⣼⡆⠀⢀⡘⡇⠀⠀⠹⡟⢷⡜⢉⣠⣠⣠⣀⣤⡿⣛⣥⣶⣾⡿⠛⠿⠿⣶⣦⡤⢹⠀⢀⠀⠀⠀⢹⡄⠀⠀⠀⠀
+⠀⠀⠀⢸⢸⡛⠁⠀⠙⢿⠋⠉⠉⠻⠀⠀⠀⢿⣄⠈⠁⠀⠀⠀⢉⢟⣴⡿⠿⠟⢁⠇⠀⠀⠀⠀⠹⣿⠻⡇⢸⠀⠀⠀⠈⣷⠀⠀⠀⠀
+⠀⣀⣀⣘⣿⡇⠀⢀⣠⣤⣶⣶⣶⣾⣦⡀⠀⠈⡿⠀⠀⠀⠀⠀⠀⣿⠟⠳⠦⡤⠊⠀⠀⠀⠀⠀⣸⠇⠀⡇⣼⠀⢰⠀⠀⢹⣇⠀⠀⠀
+⠛⠁⠈⣿⣷⣧⣴⣿⠿⠛⣿⠿⣿⣿⡿⠗⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⣠⣴⣶⠿⠿⠿⡷⢛⠕⠷⡄⣧⣿⠀⢸⠀⠀⠸⣿⡄⠀⠀
+⠀⠀⢠⣿⢿⣿⣿⠁⠀⠀⠈⠳⠤⠶⠃⠀⠀⢰⡀⠀⠀⠀⠀⠀⠀⠀⣠⣿⣿⠟⣱⠒⡠⢆⡴⣣⣯⢞⣴⡟⢿⡄⡏⠀⠀⠀⡏⢷⡀⠀
+⠀⠀⡌⣿⠀⠙⣿⡦⢀⣤⡴⣶⠖⣲⠆⢀⠞⠁⠱⠀⠀⠀⠀⠀⠠⣾⠟⠛⡡⠞⠁⢀⡴⢋⢎⣽⡿⣫⠋⠀⠘⢷⠃⡄⠀⠀⡇⠈⣿⡀
+⠀⠀⣇⢹⣦⠀⠼⢃⡾⢋⣶⢃⡼⣹⡳⠃⠊⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠈⠠⠋⠀⡰⠋⠀⢘⣇⡇⠀⢠⠟⠀⡇⠀⠀⠀⠀⢹⡵
+⠀⠀⢻⣌⢿⡆⠀⡝⣼⠟⣩⢏⣾⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠞⠀⠀⠀⠀⠈⠀⣠⠏⣠⣾⡇⠀⠀⠀⠀⠘⣷
+⡀⠀⢸⣿⣿⣷⠆⢠⠏⡴⠃⡡⠋⠀⠀⠀⠀⠀⠀⣀⣠⠤⠔⠒⠤⣄⣀⠀⠀⢀⣰⠏⠀⠀⠀⠀⢀⣠⡾⠗⠋⢰⠏⡇⠀⠀⠘⠀⠰⢻
+⣇⠀⠘⣿⣿⣟⠻⣄⡞⠀⠐⠁⠀⠀⠀⠀⠀⣠⠞⣩⣤⣶⣶⣾⣷⣶⣬⣿⣿⣿⡏⠀⠀⠀⠀⠉⠉⠁⠀⠀⠀⢸⡆⡇⠀⠀⠀⠀⠀⠀
+⠹⡄⠀⠹⣿⣿⡄⠀⠉⠉⠀⡀⠀⠀⠈⢻⣾⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣇⣧⠀⠀⠀⠀⠀⠀
+⠀⣿⢦⣀⠘⢿⣷⡀⠀⠀⡀⢦⠀⠀⠀⠀⠹⣿⣿⠏⠙⢻⣿⡿⠛⠉⠀⠸⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⣿⣿⠀⠀⡆⠀⠀⡀
+⢼⣿⠀⠈⢳⣤⣉⣻⣤⣀⣉⣩⠆⠀⠀⠀⠀⠹⡿⠀⠀⠈⡿⠀⠀⠀⠀⣸⡇⠀⠀⠀⠀⠀⠀⠓⠂⠀⣠⣾⣿⣿⡿⢿⡄⠀⣧⠀⠀⠹
+⣾⠃⠀⣠⣿⣿⣿⣿⣿⣿⣄⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢸⡇⠀⠀⢠⠴⣿⡄⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⡿⣧⣀⠧⣰⣻⢄⠀⠀
+⠛⠶⢾⣿⣽⣭⣽⣭⢹⣷⠀⢹⣦⣀⠀⠀⠀⠀⡄⠀⠀⣸⡀⠀⠀⠁⣰⣧⣽⠀⠀⠀⠀⢀⣴⣾⣿⣿⡟⣻⣿⣿⣿⣿⢠⣿⣧⡸⣷⣄
+⠀⠀⠀⠈⠙⠿⣿⣿⣿⠏⠀⣾⣿⣿⣷⣦⣀⠀⢇⠀⠀⠈⠁⠀⣠⠔⠁⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠏⣼⣿⠏⣷⡈⠉
+⠀⠀⠀⠀⠀⠀⠀⠙⠻⣶⣾⣿⣿⣿⣿⣿⣿⣷⣾⡆⠀⠀⠀⡾⠁⠀⠀⠀⣀⡴⠞⠛⣛⣿⡿⠿⠛⠛⠉⠉⠀⠀⠀⢰⣿⡿⠂⠈⠻⡄
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢎⠉⠛⠻⠿⠿⠿⠿⠿⣇⠠⠸⣇⣀⣤⣴⣾⡭⠶⠛⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⠇⠀⠀⠀⠘
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⣤⡀⠀⠀⠀⠀⠀⠈⣳⠀⣿⠛⠻⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⡯⠀⠀⠀⠀⠀
 
 */
